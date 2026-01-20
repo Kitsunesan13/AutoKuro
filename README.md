@@ -2,21 +2,24 @@
 
 **Tactical Reconnaissance Pipeline for Bug Bounty Hunters**
 
-AutoKuro QB is an automated vulnerability scanning framework designed for tactical reconnaissance. It chains together industry-standard tools (Nuclei, Naabu, Feroxbuster, etc.) into a smart, resilient pipeline. It features anti-WAF capabilities, smart target filtering, and a checkpoint system to resume interrupted scans.
+AutoKuro QB is an automated vulnerability scanning framework designed for tactical reconnaissance. It efficiently chains industry-standard tools (Nuclei, Naabu, Feroxbuster, etc.) into a smart, resilient pipeline.
+
+This version features a **Hardware Scaling Engine** that allows the tool to run efficiently on devices ranging from mobile phones (Termux) to high-performance Cloud VPS servers, alongside a **Streamed Pipeline** architecture to minimize Disk I/O.
 
 ## Key Features
 
-* **Smart Recon:** Automatically filters priority targets (admin, api, dev) to optimize resource usage.
-* **Checkpoint System:** Detects existing output files and skips completed steps. Scans can be resumed at any time.
-* **Anti-WAF & Stealth:** Implements TLS spoofing (JA3 bypass), rate limiting, and random user-agents to evade detection.
-* **Multi-Mode Operation:** Three distinct operational modes (Ghost, Ranger, Blitz) for different engagement rules.
-* **Proxy Support:** Full HTTP/SOCKS5 proxy support across all underlying tools for anonymity.
-* **Real-time Notifications:** Integrated Telegram alerts for critical findings and scan progress.
-* **Dependency Validator:** Built-in health check to ensure all required binaries are installed.
+* **Hardware Scaling:** Adjusts thread counts, concurrency, and rate limits dynamically based on the hardware profile (Mobile, Desktop, VPS).
+* **Streamed Recon:** Uses Unix piping (Subfinder -> Httpx) to process subdomains immediately without blocking I/O.
+* **Context-Aware Intelligence:** Detects the target technology stack (Springboot, Laravel, etc.) before scanning.
+* **Smart Filtering:** Uses configurable keywords (defined in YAML) to prioritize sensitive endpoints like admin panels and APIs.
+* **Checkpoint System:** Detects existing output files and resumes interrupted scans automatically.
+* **Anti-WAF & Stealth:** Implements TLS spoofing (JA3 bypass) and randomized user-agents.
+* **Error Resilience:** Captures and logs tool errors instead of failing silently.
+* **Real-time Notifications:** Integrated Telegram alerts for critical findings.
 
 ## Prerequisites & Installation
 
-This tool requires **Python 3** and **Go (Golang)**. Since there is no setup script, you must install the underlying tools manually and ensure they are available in your system `$PATH`.
+This tool requires **Python 3** and **Go (Golang)**. There is no automated setup script; you must install the underlying tools manually and ensure they are in your system path.
 
 ### 1. Clone the Repository
 
@@ -35,14 +38,14 @@ pip3 install -r requirements.txt
 
 ### 3. Install External Tools (Manual)
 
-You must install the following tools manually via `go install` or `apt`.
+Install the following tools via `go install` or `apt`.
 
 **Required Go Tools:**
 
 * **Nuclei** (v3.0+ required): `github.com/projectdiscovery/nuclei/v3/cmd/nuclei`
 * **Subfinder:** `github.com/projectdiscovery/subfinder/v2/cmd/subfinder`
 * **Naabu:** `github.com/projectdiscovery/naabu/v2/cmd/naabu`
-* **Httpx:** `github.com/projectdiscovery/httpx/cmd/httpx` (Note: Ensure binary is named `httpx-toolkit` on Kali, or alias it).
+* **Httpx:** `github.com/projectdiscovery/httpx/cmd/httpx` (Ensure binary is named `httpx-toolkit` on Kali).
 * **Katana:** `github.com/projectdiscovery/katana/cmd/katana`
 * **Gau:** `github.com/bp0lr/gau/v2/cmd/gau`
 * **Dalfox:** `github.com/hahwul/dalfox/v2`
@@ -51,12 +54,12 @@ You must install the following tools manually via `go install` or `apt`.
 **Other Required Tools:**
 
 * **Feroxbuster:** Install via binary release or `apt install feroxbuster`.
-* **ParamSpider:** Clone from GitHub (`devanshbatham/ParamSpider`) and install via pip.
-* **SecLists:** Ensure SecLists are located at `/usr/share/wordlists/seclists`.
+* **ParamSpider:** Clone from GitHub and install via pip.
+* **SecLists:** Ensure wordlists are at `/usr/share/wordlists/seclists`.
 
 ### 4. Verify Installation
 
-Run the built-in validator to ensure all tools are correctly installed.
+Run the built-in validator to ensure all tools are detected.
 
 ```bash
 python3 main.py --verify
@@ -65,13 +68,19 @@ python3 main.py --verify
 
 ## Configuration
 
-Edit `config/config.yaml` to configure Telegram notifications.
+Edit `config/config.yaml` to configure Telegram credentials and priority keywords.
 
 ```yaml
 telegram:
   enabled: true
   bot_token: "YOUR_BOT_TOKEN"
   chat_id: "YOUR_CHAT_ID"
+
+priority_keywords:
+  - admin
+  - api
+  - dev
+  - internal
 
 ```
 
@@ -80,29 +89,66 @@ telegram:
 ### Basic Command
 
 ```bash
-python3 main.py start -d <TARGET_DOMAIN> -m <MODE> [FLAGS]
+python3 main.py start -d <TARGET_DOMAIN> -m <MODE> -hw <PROFILE> [FLAGS]
 
 ```
 
-### Operational Modes
+### 1. Operational Modes (-m / --mode)
 
-| Mode | Codename | Description | Use Case |
-| --- | --- | --- | --- |
-| **Ghost** | `ghost` | Slow, Anti-JA3, Rate-limited. | WAF-protected targets. |
-| **Ranger** | `ranger` | Balanced speed and depth. | Standard scanning (Default). |
-| **Blitz** | `blitz` | Aggressive, Noisy. | CTFs or IP ranges. |
+Defines the **strategy** of the scan.
+
+| Mode | Description | Use Case |
+| --- | --- | --- |
+| **Ghost** | Slow, Anti-JA3, Rate-limited. | WAF-protected targets (Cloudflare/Akamai). |
+| **Ranger** | Balanced speed and depth. | Standard VDP scanning (Default). |
+| **Blitz** | Aggressive, Noisy, No delays. | CTFs, Internal Networks, or IP ranges. |
+
+### 2. Hardware Profiles (-hw / --hardware)
+
+Defines the **intensity** (threads/speed) based on your device.
+
+| Profile | Multiplier | Description |
+| --- | --- | --- |
+| **Mobile** | 0.4x | Low resource usage. Prevents overheating on phones/Termux. |
+| **Desktop** | 1.0x | Standard usage for Laptops or PC Workstations. |
+| **VPS** | 2.5x | High concurrency. Utilizes cloud server bandwidth. |
 
 ### Examples
 
+**Standard Desktop Scan**
+
 ```bash
-# Standard Scan
-python3 main.py start -d example.com -m ranger
+python3 main.py start -d example.com -m ranger -hw desktop
 
-# Stealth Scan with Notifications
-python3 main.py start -d example.com -m ghost --notify
+```
 
-# Proxy Scan
+**Aggressive Scan on High-End VPS**
+
+```bash
+python3 main.py start -d example.com -m blitz -hw vps
+
+```
+
+**Stealth Scan on Mobile (Termux)**
+
+```bash
+python3 main.py start -d example.com -m ghost -hw mobile
+
+```
+
+**Proxy Scan**
+
+```bash
 python3 main.py start -d example.com -p "http://127.0.0.1:8080"
+
+```
+
+### Performance Tip
+
+If running on Linux, set the output directory to `/dev/shm` (RAMDisk) to significantly reduce Disk I/O and increase speed.
+
+```bash
+python3 main.py start -d example.com -o /dev/shm/scans
 
 ```
 
@@ -114,6 +160,8 @@ Results are organized by domain and date in the `results/` directory.
 results/
 └── example.com/
     └── 2023-10-27/
+        ├── live_hosts.txt          # Live subdomains
+        ├── technology.txt          # Detected tech stack
         ├── nuclei_report.txt       # Vulnerabilities
         ├── dalfox_xss.txt          # XSS payloads
         ├── secrets_leak.txt        # Secrets/Keys
@@ -125,7 +173,7 @@ results/
 ## Disclaimer & Author's Note
 
 **This is an amateur project.**
-This tool was created by a university student who is learning Python and is also an amateur bug bounty hunter. The code is largely based on open source and code snippets found on the internet. This repository primarily serves as a personal backup and learning archive.
+This tool was created by a university student who is currently learning Python and is also an amateur bug hunter. The code is largely based on open source and code snippets found on the internet. This repository primarily serves as a **personal backup** and learning archive.
 
 **Legal Warning:**
-This tool was developed for educational and permitted security testing purposes only. The author is not responsible for any misuse or damage caused by this program. Always obtain the appropriate permission before scanning any target.
+This tool is developed for educational purposes and authorized security testing only. The author is not responsible for any misuse or damage caused by this program. Always obtain proper authorization before scanning any target.
