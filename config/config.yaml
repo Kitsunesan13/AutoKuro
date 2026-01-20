@@ -1,0 +1,57 @@
+telegram:
+  enabled: true
+  bot_token: "YOUR_BOT_TOKEN_HERE"
+  chat_id: "YOUR_CHAT_ID_HERE"
+
+timeout: 20
+wordlist_path: "/usr/share/wordlists/seclists/Discovery/Web-Content/raft-medium-directories.txt"
+wordlist_fallback: "/usr/share/wordlists/dirb/common.txt"
+
+modes:
+  ghost:
+    threads: 10
+    subfinder: "-all -silent"
+    naabu: "-top-ports 100 -exclude-cdn -silent -rate 50"
+    httpx: "-silent -mc 200,301,302,403,404 -retries 3 -threads 10 -rl 30 -random-agent"
+    nuclei_takeover: "-t http/takeovers -silent -tls-impersonate"
+    nuclei_cloud: "-t cloud/enumeration -tags cloud,bucket,s3,azure,google -silent -tls-impersonate"
+    nuclei: "-silent -severity critical,high,medium,low -retries 2 -rl 15 -c 10 -ires -tls-impersonate"
+    nuclei_tokens: "-tags token,keys,exposure -silent -rl 15 -tls-impersonate"
+    feroxbuster: "--stdin --extract-links --json --depth 1 --rate-limit 30 -t 5 --random-agent --redirects"
+    gau: "--threads 2 --subs"
+    katana: "-silent -jc -kf all -c 5 -d 2 -random-agent -rl 15"
+    paramspider: "--quiet"
+    dalfox: "pipe -S --skip-bcs --mining-dict --worker 10 --delay 200"
+    trufflehog: "filesystem --no-verification --concurrency 5"
+
+  ranger:
+    threads: 25
+    subfinder: "-all -silent"
+    naabu: "-top-ports 1000 -exclude-cdn -silent"
+    httpx: "-silent -mc 200,301,302,403,404 -retries 2 -threads 25 -rl 100 -random-agent"
+    nuclei_takeover: "-t http/takeovers -silent -tls-impersonate"
+    nuclei_cloud: "-t cloud/enumeration -tags cloud,bucket,s3 -silent -tls-impersonate"
+    nuclei: "-silent -severity critical,high,medium,low,info -retries 1 -rl 50 -c 25 -ires -tls-impersonate"
+    nuclei_tokens: "-tags token,keys,exposure -silent -tls-impersonate"
+    feroxbuster: "--stdin --extract-links --json --depth 2 -t 20 --random-agent --redirects"
+    gau: "--threads 5 --subs"
+    katana: "-silent -jc -kf all -c 20 -d 3 -random-agent"
+    paramspider: "--quiet"
+    dalfox: "pipe -S --skip-bcs --mining-dict --worker 25"
+    trufflehog: "filesystem --no-verification --concurrency 10"
+
+  blitz:
+    threads: 100
+    subfinder: "-all -silent -t 100"
+    naabu: "-p - -exclude-cdn -silent -rate 1000"
+    httpx: "-silent -mc 200,301,302,403,404 -retries 1 -threads 100"
+    nuclei_takeover: "-t http/takeovers -silent"
+    nuclei_cloud: "-t cloud/enumeration -tags cloud,bucket,s3 -silent"
+    nuclei: "-silent -severity critical,high,medium,low,info -retries 0 -c 50"
+    nuclei_tokens: "-tags token,keys,exposure -silent"
+    feroxbuster: "--stdin --extract-links --json --depth 3 -t 50 --redirects"
+    gau: "--threads 20 --subs"
+    katana: "-silent -jc -kf all -c 50 -d 3"
+    paramspider: "--quiet"
+    dalfox: "pipe -S --skip-bcs --mining-dict --worker 100"
+    trufflehog: "filesystem --no-verification --concurrency 50"
