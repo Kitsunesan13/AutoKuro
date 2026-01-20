@@ -47,9 +47,7 @@ def main(
     ctx: typer.Context,
     verify: bool = typer.Option(False, "--verify", help="Check system dependencies and exit")
 ):
-    """
-    AutoKuro QB - Tactical Bug Bounty Reconnaissance
-    """
+
     if verify:
         utils.check_dependencies()
         raise typer.Exit()
@@ -92,9 +90,6 @@ def start(
     proxy: str = typer.Option(None, "-p", "--proxy", help="Proxy URL"),
     notify_me: bool = typer.Option(False, "-n", "--notify", help="Enable Notifications")
 ):
-    """
-    Start the tactical reconnaissance pipeline.
-    """
     
     utils.check_dependencies()
 
@@ -105,19 +100,21 @@ def start(
         console.print(f"[bold red]❌ Profile '{profile}' unknown![/bold red]")
         sys.exit(1)
     
-    # SCALING LOGIC
     base_config = CONFIG['modes'][mode]
     hw_multiplier = CONFIG['hardware'][profile]['multiplier']
     SELECTED_CONFIG = utils.apply_hardware_profile(base_config, hw_multiplier)
-    
-    # 1. SETUP PROXY & AUTH INJECTION
+
+    real_httpx_bin = utils.get_httpx_binary()
+    if real_httpx_bin and real_httpx_bin != "httpx-toolkit":
+        if "recon_stream" in SELECTED_CONFIG:
+            SELECTED_CONFIG['recon_stream'] = SELECTED_CONFIG['recon_stream'].replace("httpx-toolkit", real_httpx_bin)
+
     if proxy:
         console.print(f"[bold yellow]🕵️ Proxy Enabled: {proxy}[/bold yellow]")
-        SELECTED_CONFIG['httpx'] = SELECTED_CONFIG.get('httpx', '') + f" -http-proxy {proxy}"
         
-        # Inject proxy to Stream Command
-        if "httpx-toolkit" in SELECTED_CONFIG['recon_stream']:
-            SELECTED_CONFIG['recon_stream'] = SELECTED_CONFIG['recon_stream'].replace("httpx-toolkit", f"httpx-toolkit -http-proxy {proxy}")
+        httpx_bin_name = real_httpx_bin if real_httpx_bin else "httpx-toolkit"
+        if httpx_bin_name in SELECTED_CONFIG['recon_stream']:
+            SELECTED_CONFIG['recon_stream'] = SELECTED_CONFIG['recon_stream'].replace(httpx_bin_name, f"{httpx_bin_name} -http-proxy {proxy}")
             
         proxy_nuclei = f" -proxy {proxy}"
         for k in SELECTED_CONFIG:
@@ -139,11 +136,11 @@ def start(
         SELECTED_CONFIG['feroxbuster'] += cookie_header
         SELECTED_CONFIG['gau'] += f" --cookie '{cookie}'"
 
-    # 2. BRANDING (Compact & Rounded UI)
     console.print(Panel(
         f"[bold green]Target:[/bold green] {domain}\n"
-        f"[bold blue]Mode:[/bold blue] {mode.upper()}\n"
-        f"[bold yellow]Proxy:[/bold yellow] {'ON' if proxy else 'OFF'}\n"
+        f"[bold blue]Mode:[/bold blue]   {mode.upper()}\n"
+        f"[bold cyan]Profile:[/bold cyan] {profile.upper()} ({hw_multiplier}x)\n"
+        f"[bold yellow]Proxy:[/bold yellow]  {'ON' if proxy else 'OFF'}\n"
         f"[bold magenta]Notify:[/bold magenta] {'ON' if notify_me else 'OFF'}",
         title="🏴 [bold white]AutoKuro QB[/bold white] 🦊",
         border_style="red",
@@ -152,7 +149,6 @@ def start(
         expand=False 
     ))
     
-    # RAMDisk Tip
     if os.path.exists("/dev/shm") and "results" in output:
         console.print("[dim]💡 Tip: Use [bold]/dev/shm[/bold] for RAMDisk speed.[/dim]\n")
 
@@ -182,7 +178,6 @@ def start(
             progress.update(main_task, description=desc, data_size=size)
             progress.advance(main_task)
 
-        # STEP 1: STREAMED RECON
         progress.update(main_task, description="[1/12] Streamed Recon (Pipe)...")
         expected_live = os.path.join(target_dir, "live_hosts.txt")
         if os.path.exists(expected_live) and os.path.getsize(expected_live) > 0:
@@ -197,7 +192,6 @@ def start(
             if notify_me: notify.send_telegram(f"❌ *Scan Failed*: No live hosts found.", CONFIG['telegram'])
             raise typer.Exit()
 
-        # STEP 2: TECH DETECT
         progress.update(main_task, description="[2/12] Detecting Tech Stack...")
         expected_tech = os.path.join(target_dir, "technology.txt")
         if not os.path.exists(expected_tech):
@@ -205,19 +199,16 @@ def start(
         else: console.print(f"[dim]   ⏩ Checkpoint: Skipping Tech Detect[/dim]")
         update_ui("[2/12] Tech Done")
 
-        # STEP 3: PORTS (Optional)
         progress.update(main_task, description="[3/12] Port Scanning...")
         expected_ports = os.path.join(target_dir, "open_ports.txt")
         if os.path.exists(expected_ports) and os.path.getsize(expected_ports) > 0:
             console.print(f"[dim]   ⏩ Checkpoint: Skipping Naabu[/dim]")
             update_ui("[3/12] Ports Done")
         else:
-            # Naabu flags already scaled by utils
             naabu_flags = SELECTED_CONFIG.get('naabu', '-top-ports 1000 -silent')
             recon.execute_naabu(live_file, target_dir, naabu_flags)
             update_ui("[3/12] Ports Done")
 
-        # STEP 4: TAKEOVERS
         progress.update(main_task, description="[4/12] Checking Takeovers...")
         expected_takeover = os.path.join(target_dir, "takeover_results.txt")
         if not os.path.exists(expected_takeover):
@@ -226,7 +217,6 @@ def start(
         else: console.print(f"[dim]   ⏩ Checkpoint: Skipping Takeover[/dim]")
         update_ui("[4/12] Takeover Done")
 
-        # STEP 5: CLOUD
         progress.update(main_task, description="[5/12] Cloud Enumeration...")
         expected_cloud = os.path.join(target_dir, "cloud_enum_results.txt")
         if not os.path.exists(expected_cloud):
@@ -235,7 +225,6 @@ def start(
         else: console.print(f"[dim]   ⏩ Checkpoint: Skipping Cloud Enum[/dim]")
         update_ui("[5/12] Cloud Done")
 
-        # STEP 6: FEROXBUSTER (Configurable Keywords)
         progress.update(main_task, description="[6/12] Smart Dir Busting...")
         expected_ferox = os.path.join(target_dir, "hidden_dirs.txt")
         if os.path.exists(expected_ferox) and os.path.getsize(expected_ferox) > 0:
@@ -253,7 +242,6 @@ def start(
             )
             update_ui("[6/12] DirBust Done")
 
-        # STEP 7: CRAWLING
         progress.update(main_task, description="[7/12] Deep Crawling...")
         expected_gau = os.path.join(target_dir, "archive_urls.txt")
         expected_katana = os.path.join(target_dir, "active_crawl.txt")
@@ -268,7 +256,6 @@ def start(
         merge_and_clean_files([gau_file, katana_file, ferox_file], all_urls_clean)
         update_ui("[7/12] Crawl Done")
 
-        # STEP 8: MINING
         progress.update(main_task, description="[8/12] Mining Parameters...")
         expected_params = os.path.join(target_dir, "parameters.txt")
         if os.path.exists(expected_params):
@@ -279,7 +266,6 @@ def start(
             params_file = crawler.execute_paramspider(domain, target_dir, SELECTED_CONFIG['paramspider'])
             update_ui("[8/12] Mining Done")
 
-        # STEP 9: JS ANALYSIS
         progress.update(main_task, description="[9/12] JS Token Analysis...")
         js_vuln_file = os.path.join(target_dir, "nuclei_report_secrets.txt")
         if not os.path.exists(js_vuln_file):
@@ -291,7 +277,6 @@ def start(
         else: console.print(f"[dim]   ⏩ Checkpoint: Skipping JS Analysis[/dim]")
         update_ui("[9/12] JS Done")
 
-        # STEP 10: NUCLEI VULN
         progress.update(main_task, description="[10/12] Nuclei Scanning...")
         expected_nuclei = os.path.join(target_dir, "nuclei_report.txt")
         if os.path.exists(expected_nuclei):
@@ -303,7 +288,6 @@ def start(
             check_findings_and_notify("Nuclei Vulns", nuclei_vuln, domain, notify_me)
             update_ui("[10/12] Nuclei Done")
 
-        # STEP 11: XSS
         progress.update(main_task, description="[11/12] XSS Check...")
         expected_dalfox = os.path.join(target_dir, "dalfox_xss.txt")
         if not os.path.exists(expected_dalfox):
@@ -313,7 +297,6 @@ def start(
         else: console.print(f"[dim]   ⏩ Checkpoint: Skipping Dalfox[/dim]")
         update_ui("[11/12] XSS Done")
 
-        # STEP 12: SECRETS
         progress.update(main_task, description="[12/12] Secrets Check...")
         expected_secrets = os.path.join(target_dir, "secrets_leak.txt")
         if not os.path.exists(expected_secrets):

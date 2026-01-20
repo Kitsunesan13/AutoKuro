@@ -7,16 +7,14 @@ from rich.console import Console
 console = Console()
 
 def run_os_command(command: str, step_name: str):
-    """
-    Executes shell commands safely with Error Handling (No more Flying Blind).
-    """
+
     try:
         result = subprocess.run(
             command, 
             shell=True, 
             check=True,
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE, # Capture error output
+            stderr=subprocess.PIPE,
             text=True
         )
         return True
@@ -25,16 +23,22 @@ def run_os_command(command: str, step_name: str):
         console.print(f"[dim]{e.stderr.strip()}[/dim]")
         return False
 
+def get_httpx_binary():
+
+    if shutil.which("httpx-toolkit"):
+        return "httpx-toolkit"
+    elif shutil.which("httpx"):
+        return "httpx"
+    else:
+        return None
+
 def apply_hardware_profile(config_dict, multiplier):
-    """
-    SCALING ENGINE: Modifies flags based on hardware multiplier.
-    """
+
     if multiplier == 1.0:
         return config_dict.copy()
     
     scaled_config = config_dict.copy()
     
-    # Flags to scale
     patterns = [
         r'(-t|--threads)\s+(\d+)',
         r'(-c|--concurrency)\s+(\d+)',
@@ -59,16 +63,22 @@ def apply_hardware_profile(config_dict, multiplier):
     return scaled_config
 
 def check_dependencies():
+
     required_tools = [
-        "subfinder", "naabu", "httpx-toolkit", "nuclei", 
+        "subfinder", "naabu", "nuclei", 
         "feroxbuster", "gau", "katana", "paramspider", 
         "dalfox", "trufflehog"
     ]
     
     missing_tools = []
+    
+
     for tool in required_tools:
         if not shutil.which(tool):
             missing_tools.append(tool)
+            
+    if not get_httpx_binary():
+        missing_tools.append("httpx (or httpx-toolkit)")
     
     if missing_tools:
         console.print(f"[bold red]❌ Error: Missing dependencies:[/bold red]")
