@@ -126,5 +126,6 @@ results/
 
 **This is an amateur project.**
 This tool was created by a university student who is learning Python and is also an amateur bug bounty hunter. The code is largely based on open source and code snippets found on the internet. This repository primarily serves as a personal backup and learning archive.
+
 **Legal Warning:**
 This tool was developed for educational and permitted security testing purposes only. The author is not responsible for any misuse or damage caused by this program. Always obtain the appropriate permission before scanning any target.
