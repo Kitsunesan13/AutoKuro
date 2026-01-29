@@ -26,7 +26,7 @@ This tool requires **Python 3** and **Go (Golang)**. There is no automated setup
 ### 1. Clone the Repository
 
 ```bash
-git clone [https://github.com/yourusername/AutoKuro.git](https://github.com/yourusername/AutoKuro.git)
+git clone (https://github.com/Kitsunesan13/AutoKuroQB.git)
 cd AutoKuro
 
 ```
