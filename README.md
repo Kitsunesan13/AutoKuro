@@ -1,20 +1,22 @@
+
 # AutoKuro QB
 
 **Tactical Reconnaissance Pipeline for Bug Bounty Hunters**
 
-AutoKuro QB is an automated vulnerability scanning framework designed for tactical reconnaissance. It efficiently chains industry-standard tools (Nuclei, Naabu, Feroxbuster, etc.) into a smart, resilient pipeline.
+AutoKuro QB is an automated vulnerability scanning framework designed for tactical reconnaissance. It efficiently chains industry-standard tools (Nuclei, Naabu, Feroxbuster, etc.) into a smart, resilient, and asynchronous pipeline.
 
-This version features a **Hardware Scaling Engine** that allows the tool to run efficiently on devices ranging from mobile phones (Termux) to high-performance Cloud VPS servers, alongside a **Streamed Pipeline** architecture to minimize Disk I/O.
+This version features a **Hardware Scaling Engine** that allows the tool to run efficiently on devices ranging from mobile phones (Termux) to high-performance Cloud VPS servers. It utilizes an **Asynchronous Orchestrator** to execute scanning tasks in parallel without blocking, alongside a **Surgical Scanning Logic** that intelligently categorizes targets to maximize accuracy and minimize noise.
 
 ## Key Features
 
+* **Asynchronous Orchestration:** Runs multiple scanning modules (Port Scanning, Cloud Enum, Tech Detect) in parallel to significantly reduce scan time while maintaining a sequential-style user interface.
+* **Smart Surgical Scanning:** Automatically categorizes subdomains into 'API', 'Static', and 'Dynamic' groups. It then applies specific scan strategies to each group (e.g., API-specific payloads for APIs, Misconfig checks for Static assets), reducing false positives and wasted resources.
+* **Adaptive Resilience:** Features a self-healing mechanism that detects tool failures or timeouts. If a tool fails (e.g., due to WAF blocking), the engine automatically retries with reduced rate limits and concurrency.
+* **Memory Safe Architecture:** Utilizes Python Generators and an internal SQLite database for deduplication and file processing, ensuring stability even on low-RAM devices processing millions of URLs.
 * **Hardware Scaling:** Adjusts thread counts, concurrency, and rate limits dynamically based on the hardware profile (Mobile, Desktop, VPS).
 * **Streamed Recon:** Uses Unix piping (Subfinder -> Httpx) to process subdomains immediately without blocking I/O.
-* **Context-Aware Intelligence:** Detects the target technology stack (Springboot, Laravel, etc.) before scanning.
-* **Smart Filtering:** Uses configurable keywords (defined in YAML) to prioritize sensitive endpoints like admin panels and APIs.
-* **Checkpoint System:** Detects existing output files and resumes interrupted scans automatically.
+* **Context-Aware Intelligence:** Detects the target technology stack (Springboot, Laravel, etc.) and injects relevant tags into the vulnerability scanner.
 * **Anti-WAF & Stealth:** Implements TLS spoofing (JA3 bypass) and randomized user-agents.
-* **Error Resilience:** Captures and logs tool errors instead of failing silently.
 * **Real-time Notifications:** Integrated Telegram alerts for critical findings.
 
 ## Prerequisites & Installation
@@ -24,7 +26,7 @@ This tool requires **Python 3** and **Go (Golang)**. There is no automated setup
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/AutoKuro.git
+git clone [https://github.com/yourusername/AutoKuro.git](https://github.com/yourusername/AutoKuro.git)
 cd AutoKuro
 
 ```
@@ -68,13 +70,18 @@ python3 main.py --verify
 
 ## Configuration
 
-Edit `config/config.yaml` to configure Telegram credentials and priority keywords.
+Edit `config/config.yaml` to configure Telegram credentials, timeouts, and priority keywords.
 
 ```yaml
 telegram:
   enabled: true
   bot_token: "YOUR_BOT_TOKEN"
   chat_id: "YOUR_CHAT_ID"
+
+# Global timeout for each tool in seconds
+timeout: 600
+# Enable auto-retry with reduced speed on failure
+adaptive_retry: true
 
 priority_keywords:
   - admin
@@ -83,13 +90,14 @@ priority_keywords:
   - internal
 
 ```
+
 ## API Integration (Recommended)
 
 To significantly increase subdomain discovery, it is highly recommended to configure external API keys (Shodan, Censys, etc.) for `subfinder`. AutoKuro QB will automatically leverage these keys without any code changes.
 
 1. Locate the Subfinder provider configuration file.
-* Linux/VPS: `$HOME/.config/subfinder/provider-config.yaml`
 
+* Linux/VPS: `$HOME/.config/subfinder/provider-config.yaml`
 
 2. Add your API keys to the file:
 
@@ -157,7 +165,7 @@ python3 main.py start -d example.com -m ghost -hw mobile
 **Proxy Scan**
 
 ```bash
-python3 main.py start -d example.com -p "http://127.0.0.1:8080"
+python3 main.py start -d example.com -p "[http://127.0.0.1:8080](http://127.0.0.1:8080)"
 
 ```
 
@@ -176,9 +184,12 @@ Results are organized by domain and date in the `results/` directory.
 
 ```text
 results/
-└── example.com/
+└── [example.com/](https://example.com/)
     └── 2023-10-27/
+        ├── final_report.json       # Consolidated JSON report
         ├── live_hosts.txt          # Live subdomains
+        ├── targets_api.txt         # Segmented API targets
+        ├── targets_dynamic.txt     # Segmented Dynamic targets
         ├── technology.txt          # Detected tech stack
         ├── nuclei_report.txt       # Vulnerabilities
         ├── dalfox_xss.txt          # XSS payloads
@@ -195,3 +206,7 @@ This tool was created by a university student who is currently learning Python a
 
 **Legal Warning:**
 This tool is developed for educational purposes and authorized security testing only. The author is not responsible for any misuse or damage caused by this program. Always obtain proper authorization before scanning any target.
+
+```
+
+```s
