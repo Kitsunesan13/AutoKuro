@@ -207,4 +207,3 @@ This tool was created by a university student who is currently learning Python a
 **Legal Warning:**
 This tool is developed for educational purposes and authorized security testing only. The author is not responsible for any misuse or damage caused by this program. Always obtain proper authorization before scanning any target.
 
-```
