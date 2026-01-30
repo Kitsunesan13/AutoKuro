@@ -1,4 +1,3 @@
-
 # AutoKuro QB
 
 **Tactical Reconnaissance Pipeline for Bug Bounty Hunters**
@@ -11,7 +10,8 @@ This version features a **Hardware Scaling Engine** that allows the tool to run 
 
 * **Asynchronous Orchestration:** Runs multiple scanning modules (Port Scanning, Cloud Enum, Tech Detect) in parallel to significantly reduce scan time while maintaining a sequential-style user interface.
 * **Smart Surgical Scanning:** Automatically categorizes subdomains into 'API', 'Static', and 'Dynamic' groups. It then applies specific scan strategies to each group (e.g., API-specific payloads for APIs, Misconfig checks for Static assets), reducing false positives and wasted resources.
-* **Adaptive Resilience:** Features a self-healing mechanism that detects tool failures or timeouts. If a tool fails (e.g., due to WAF blocking), the engine automatically retries with reduced rate limits and concurrency.
+* **WAF Kill Switch:** Proactive protection system that continuously monitors tool output for WAF block signatures (e.g., Cloudflare Ray ID, Captcha). If a block is detected, the tool executes an immediate emergency stop to preserve IP reputation and prevent bans.
+* **Adaptive Resilience:** Features a self-healing mechanism that detects tool failures or timeouts. If a tool fails (e.g., due to temporary network issues), the engine automatically retries with reduced rate limits and concurrency.
 * **Memory Safe Architecture:** Utilizes Python Generators and an internal SQLite database for deduplication and file processing, ensuring stability even on low-RAM devices processing millions of URLs.
 * **Hardware Scaling:** Adjusts thread counts, concurrency, and rate limits dynamically based on the hardware profile (Mobile, Desktop, VPS).
 * **Streamed Recon:** Uses Unix piping (Subfinder -> Httpx) to process subdomains immediately without blocking I/O.
@@ -26,7 +26,7 @@ This tool requires **Python 3** and **Go (Golang)**. There is no automated setup
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/Kitsunesan13/AutoKuroQB.git
+git clone [https://github.com/Kitsunesan13/AutoKuroQB.git](https://github.com/Kitsunesan13/AutoKuroQB.git)
 cd AutoKuro
 
 ```
@@ -165,7 +165,7 @@ python3 main.py start -d example.com -m ghost -hw mobile
 **Proxy Scan**
 
 ```bash
-python3 main.py start -d example.com -p "http://127.0.0.1:8080"
+python3 main.py start -d example.com -p "[http://127.0.0.1:8080](http://127.0.0.1:8080)"
 
 ```
 
@@ -207,3 +207,6 @@ This tool was created by a university student who is currently learning Python a
 **Legal Warning:**
 This tool is developed for educational purposes and authorized security testing only. The author is not responsible for any misuse or damage caused by this program. Always obtain proper authorization before scanning any target.
 
+```
+
+```
