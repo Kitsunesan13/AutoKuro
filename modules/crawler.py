@@ -5,7 +5,8 @@ from .db import ScanDatabase
 
 async def execute_gau(domain, output_dir, flags, timeout=None):
     output_file = os.path.join(output_dir, "archive_urls.txt")
-    cmd = f"gau {domain} {flags} -o {output_file}"
+    # FIX: Menggunakan --o (double dash)
+    cmd = f"gau {domain} {flags} --o {output_file}"
     await run_async_command(cmd, "Gau", timeout, adaptive=True)
     if os.path.exists(output_file) and os.path.getsize(output_file) > 0: return output_file
     return None

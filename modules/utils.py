@@ -9,6 +9,32 @@ from rich.console import Console
 
 console = Console()
 
+WAF_SIGNATURES = [
+    "Cloudflare Ray ID",
+    "Attention Required! | Cloudflare",
+    "Security check to access",
+    "Ray ID:",
+    "Error 1020",
+    "Error 1015", 
+    "The request was blocked",
+    "You are unable to access",
+    "WAF",
+    "Firewall",
+    "Imperva",
+    "Incapsula",
+    "AkamaiGHost",
+    "banned",
+    "Access Denied"
+]
+
+def check_waf_block(output_str):
+
+    for sig in WAF_SIGNATURES:
+        if sig in output_str:
+            return True, sig
+    return False, None
+
+# --- OPTIMIZATION: ADAPTIVE RATE LIMIT ---
 def reduce_rate_limit(command_str):
     new_cmd = command_str
     patterns = {
@@ -36,21 +62,33 @@ async def run_async_command(command, step_name, timeout=None, adaptive=True):
 
     while attempt <= retries:
         try:
-            if isinstance(current_cmd, str):
-                safe_args = shlex.split(current_cmd)
-            else:
-                safe_args = current_cmd
+            if isinstance(current_cmd, str): safe_args = shlex.split(current_cmd)
+            else: safe_args = current_cmd
 
             process = await asyncio.create_subprocess_exec(
                 *safe_args,
-                stdout=subprocess.DEVNULL,
+                stdout=subprocess.PIPE, 
                 stderr=subprocess.PIPE
             )
 
             try:
                 stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout)
+                
+                out_str = stdout.decode().strip()
+                err_str = stderr.decode().strip()
+                combined_output = f"{out_str}\n{err_str}"
+
+                is_blocked, sig = check_waf_block(combined_output)
+                if is_blocked:
+                    console.print(f"\n[bold white on red]🚨 EMERGENCY STOP: WAF BLOCKED DETECTED! ({sig})[/bold white on red]")
+                    console.print(f"[bold red]⛔ The tool is stopping immediately to protect your IP Reputation.[/bold red]")
+                    console.print(f"[dim]Module triggered: {step_name}[/dim]")
+                    sys.exit(1)
+
                 if process.returncode != 0:
-                    err_msg = stderr.decode().strip() if stderr else "Unknown Error"
+                    err_msg = err_str if err_str else "Unknown Error"
+                    if not err_msg: err_msg = out_str # Kadang error ada di stdout
+
                     if attempt < retries:
                         console.print(f"[bold yellow]⚠️ {step_name} failed. Adapting strategy... (Retry {attempt+1}/{retries})[/bold yellow]")
                         current_cmd, mod = reduce_rate_limit(current_cmd)
@@ -61,6 +99,7 @@ async def run_async_command(command, step_name, timeout=None, adaptive=True):
                         console.print(f"\n[bold red]❌ Error in {step_name} (Final):[/bold red]")
                         console.print(f"[dim]{err_msg}[/dim]")
                         return False
+                
                 return True
 
             except asyncio.TimeoutError:
@@ -79,21 +118,29 @@ async def run_async_command(command, step_name, timeout=None, adaptive=True):
             console.print(f"\n[bold red]❌ Exec Error in {step_name}: {str(e)}[/bold red]")
             return False
 
+# --- LEGACY SYNC EXECUTORS ---
 def run_os_command(command, step_name, timeout=None):
     try:
         if isinstance(command, str): safe_args = shlex.split(command)
         else: safe_args = command
-        subprocess.run(
-            safe_args, shell=False, check=True, stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE, text=True, timeout=timeout
+        result = subprocess.run(
+            safe_args, shell=False, check=False,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, 
+            text=True, timeout=timeout
         )
+        
+        is_blocked, sig = check_waf_block(result.stdout + result.stderr)
+        if is_blocked:
+             console.print(f"\n[bold white on red]🚨 EMERGENCY STOP: WAF BLOCKED ({sig})[/bold white on red]")
+             sys.exit(1)
+
+        if result.returncode != 0:
+             console.print(f"\n[bold red]❌ Error in {step_name}:[/bold red]")
+             console.print(f"[dim]{result.stderr.strip() or result.stdout.strip()}[/dim]")
+             return False
         return True
     except subprocess.TimeoutExpired:
         console.print(f"\n[bold red]⏳ Timeout in {step_name}![/bold red]")
-        return False
-    except subprocess.CalledProcessError as e:
-        console.print(f"\n[bold red]❌ Error in {step_name}:[/bold red]")
-        if e.stderr: console.print(f"[dim]{e.stderr.strip()}[/dim]")
         return False
     except Exception as e:
         console.print(f"\n[bold red]❌ Unexpected Error in {step_name}: {str(e)}[/bold red]")
@@ -107,6 +154,13 @@ def run_piped_command(cmd1_str, cmd2_str, step_name, timeout=None):
         p2 = subprocess.Popen(args2, stdin=p1.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
         p1.stdout.close()
         stderr_out = p2.communicate(timeout=timeout)[1]
+        
+        if stderr_out:
+            is_blocked, sig = check_waf_block(stderr_out.decode())
+            if is_blocked:
+                console.print(f"\n[bold white on red]🚨 EMERGENCY STOP: WAF BLOCKED ({sig})[/bold white on red]")
+                sys.exit(1)
+
         if p2.returncode != 0:
             console.print(f"\n[bold red]❌ Pipe Error in {step_name}:[/bold red]")
             if stderr_out: console.print(f"[dim]{stderr_out.decode('utf-8').strip()}[/dim]")

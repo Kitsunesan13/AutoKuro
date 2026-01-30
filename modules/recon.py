@@ -1,4 +1,5 @@
 import os
+from urllib.parse import urlparse
 from .utils import run_os_command, run_piped_command, run_async_command
 
 def execute_streamed_recon(domain, output_dir, pipeline_cmd, timeout=None):
@@ -15,8 +16,34 @@ def execute_streamed_recon(domain, output_dir, pipeline_cmd, timeout=None):
     return None
 
 async def execute_naabu_async(input_file, output_dir, flags, timeout=None):
+
+    clean_input_file = os.path.join(output_dir, "naabu_targets.txt")
+    
+    try:
+        unique_hosts = set()
+        with open(input_file, 'r') as f:
+            for line in f:
+                url = line.strip()
+                if not url: continue
+                if "://" in url:
+                    parsed = urlparse(url)
+                    hostname = parsed.netloc
+                    if hostname: unique_hosts.add(hostname)
+                else:
+                    unique_hosts.add(url)
+        
+        if unique_hosts:
+            with open(clean_input_file, 'w') as f:
+                f.write('\n'.join(unique_hosts))
+        else:
+            return None 
+            
+    except Exception:
+        clean_input_file = input_file
+
     output_file = os.path.join(output_dir, "open_ports.txt")
-    cmd = f"naabu -list {input_file} {flags} -o {output_file}"
+    cmd = f"naabu -list {clean_input_file} {flags} -o {output_file}"
+    
     await run_async_command(cmd, "Naabu", timeout, adaptive=True)
     if os.path.exists(output_file) and os.path.getsize(output_file) > 0: return output_file
     return None
